@@ -1,0 +1,203 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	hertzlog "github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/rs/zerolog"
+	"github.com/sirupsen/logrus"
+	"github.com/v-mars/zlog"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+func benchmarkZlog(basename string, iterations int) time.Duration {
+	// Create a temporary file for testing
+	logFile, err := os.CreateTemp("", basename+"_zlog_*.log")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(logFile.Name())
+	defer logFile.Close()
+
+	logger := zlog.New(
+		zlog.WithFormat(zlog.JSONFormat),
+		zlog.WithOutput(logFile),
+		zlog.WithLevel(hertzlog.LevelInfo),
+	)
+
+	start := time.Now()
+	for i := 0; i < iterations; i++ {
+		logger.Info("Test message with some data", "id", i, "status", "success", "user", fmt.Sprintf("user_%d", i%100))
+	}
+	duration := time.Since(start)
+
+	fmt.Printf("zlog:     %d iterations took %v (%.2f ns/op)\n", iterations, duration, float64(duration.Nanoseconds())/float64(iterations))
+	return duration
+}
+
+func benchmarkZerolog(basename string, iterations int) time.Duration {
+	// Create a temporary file for testing
+	logFile, err := os.CreateTemp("", basename+"_zerolog_*.log")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(logFile.Name())
+	defer logFile.Close()
+
+	logger := zerolog.New(logFile).With().Timestamp().Logger()
+
+	start := time.Now()
+	for i := 0; i < iterations; i++ {
+		logger.Info().Int("id", i).Str("status", "success").Str("user", fmt.Sprintf("user_%d", i%100)).Msg("Test message with some data")
+	}
+	duration := time.Since(start)
+
+	fmt.Printf("zerolog:  %d iterations took %v (%.2f ns/op)\n", iterations, duration, float64(duration.Nanoseconds())/float64(iterations))
+	return duration
+}
+
+func benchmarkLogrus(basename string, iterations int) time.Duration {
+	// Create a temporary file for testing
+	logFile, err := os.CreateTemp("", basename+"_logrus_*.log")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(logFile.Name())
+	defer logFile.Close()
+
+	logger := logrus.New()
+	logger.SetOutput(logFile)
+	logger.SetFormatter(&logrus.JSONFormatter{})
+
+	start := time.Now()
+	for i := 0; i < iterations; i++ {
+		logger.WithFields(logrus.Fields{
+			"id":     i,
+			"status": "success",
+			"user":   fmt.Sprintf("user_%d", i%100),
+		}).Info("Test message with some data")
+	}
+	duration := time.Since(start)
+
+	fmt.Printf("logrus:   %d iterations took %v (%.2f ns/op)\n", iterations, duration, float64(duration.Nanoseconds())/float64(iterations))
+	return duration
+}
+
+func benchmarkZap(basename string, iterations int) time.Duration {
+	// Create a temporary file for testing
+	logFile, err := os.CreateTemp("", basename+"_zap_*.log")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(logFile.Name())
+	defer logFile.Close()
+
+	encoderCfg := zapcore.EncoderConfig{
+		MessageKey:     "message",
+		LevelKey:       "level",
+		TimeKey:        "time",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		FunctionKey:    zapcore.OmitKey,
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encoderCfg),
+		zapcore.AddSync(logFile),
+		zapcore.InfoLevel,
+	)
+	logger := zap.New(core, zap.AddCaller(), zap.Development())
+
+	start := time.Now()
+	for i := 0; i < iterations; i++ {
+		logger.Info("Test message with some data",
+			zap.Int("id", i),
+			zap.String("status", "success"),
+			zap.String("user", fmt.Sprintf("user_%d", i%100)),
+		)
+	}
+	duration := time.Since(start)
+
+	fmt.Printf("zap:      %d iterations took %v (%.2f ns/op)\n", iterations, duration, float64(duration.Nanoseconds())/float64(iterations))
+	logger.Sync() // Flush any buffered log entries
+	return duration
+}
+
+func benchmarkConsole(basename string, iterations int) time.Duration {
+	// Create a temporary file for testing
+	logFile, err := os.CreateTemp("", basename+"_console_*.log")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(logFile.Name())
+	defer logFile.Close()
+
+	logger := zlog.New(
+		zlog.WithFormat(zlog.ConsoleFormat),
+		zlog.WithOutput(logFile),
+		zlog.WithLevel(hertzlog.LevelInfo),
+	)
+
+	start := time.Now()
+	for i := 0; i < iterations; i++ {
+		logger.Info("Test message with some data", "id", i, "status", "success", "user", fmt.Sprintf("user_%d", i%100))
+	}
+	duration := time.Since(start)
+
+	fmt.Printf("zlog-console: %d iterations took %v (%.2f ns/op)\n", iterations, duration, float64(duration.Nanoseconds())/float64(iterations))
+	return duration
+}
+
+func main() {
+	iterations := 100000
+	basename := "perf_test"
+
+	fmt.Printf("Running performance tests with %d iterations...\n\n", iterations)
+
+	zlogDuration := benchmarkZlog(basename, iterations)
+	zerologDuration := benchmarkZerolog(basename, iterations)
+	logrusDuration := benchmarkLogrus(basename, iterations)
+	zapDuration := benchmarkZap(basename, iterations)
+	consoleDuration := benchmarkConsole(basename, iterations)
+
+	fmt.Println("\nPerformance Results (lower is better):")
+	fmt.Printf("zlog (JSON):    %v (%.2f ns/op)\n", zlogDuration, float64(zlogDuration.Nanoseconds())/float64(iterations))
+	fmt.Printf("zlog (Console): %v (%.2f ns/op)\n", consoleDuration, float64(consoleDuration.Nanoseconds())/float64(iterations))
+	fmt.Printf("zerolog:        %v (%.2f ns/op)\n", zerologDuration, float64(zerologDuration.Nanoseconds())/float64(iterations))
+	fmt.Printf("logrus:         %v (%.2f ns/op)\n", logrusDuration, float64(logrusDuration.Nanoseconds())/float64(iterations))
+	fmt.Printf("zap:            %v (%.2f ns/op)\n", zapDuration, float64(zapDuration.Nanoseconds())/float64(iterations))
+
+	// Calculate and show relative performance
+	fmt.Println("\nRelative Performance (compared to fastest):")
+	fastest := minDuration(zlogDuration, consoleDuration, zerologDuration, logrusDuration, zapDuration)
+
+	printRelative("zlog (JSON)", zlogDuration, fastest)
+	printRelative("zlog (Console)", consoleDuration, fastest)
+	printRelative("zerolog", zerologDuration, fastest)
+	printRelative("logrus", logrusDuration, fastest)
+	printRelative("zap", zapDuration, fastest)
+}
+
+func minDuration(durations ...time.Duration) time.Duration {
+	min := durations[0]
+	for _, d := range durations[1:] {
+		if d < min {
+			min = d
+		}
+	}
+	return min
+}
+
+func printRelative(name string, duration, fastest time.Duration) {
+	ratio := float64(duration) / float64(fastest)
+	fmt.Printf("%s: %.2fx slower than fastest\n", name, ratio)
+}
