@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"github.com/rs/zerolog"
 )
 
 // OtelHook is a zerolog hook that integrates with OpenTelemetry
@@ -176,14 +176,14 @@ func (zl *ZLogger) CtxErrorfWithTrace(ctx context.Context, format string, v ...i
 
 // SetTraceProvider allows dynamic changing of the trace provider
 func (zl *ZLogger) SetTraceProvider(tp trace.TracerProvider) {
-	if tp != nil {
-		zl.tp = tp
-	} else {
-		zl.tp = trace.NewNoopTracerProvider()
-	}
+	//if tp != nil {
+	//	zl.tp = tp
+	//} else {
+	//	zl.tp = trace.NewNoopTracerProvider()
+	//}
 }
 
 // GetTraceProvider returns the current trace provider
-func (zl *ZLogger) GetTraceProvider() trace.TracerProvider {
-	return zl.tp
-}
+//func (zl *ZLogger) GetTraceProvider() trace.TracerProvider {
+//	return zl.tp
+//}

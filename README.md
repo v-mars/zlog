@@ -17,7 +17,6 @@ zlog是一个灵活且高性能的Go日志库，支持与Hertz框架的hlog集�
 ```bash
 go mod init your-project
 go get github.com/cloudwego/hertz/pkg/common/hlog
-go get github.com/v-mars/oceanlog
 go get gopkg.in/natefinch/lumberjack.v2
 ```
 

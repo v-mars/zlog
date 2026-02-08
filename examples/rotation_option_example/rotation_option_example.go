@@ -4,8 +4,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/rs/zerolog"
 	hertzlog "github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/rs/zerolog"
 	"github.com/v-mars/zlog"
 )
 
@@ -13,11 +13,11 @@ func main() {
 	// Example 1: Using GetDefaultRotateConfig with Option pattern
 	// This demonstrates the flexibility of the configuration
 	rotateConfig := zlog.GetDefaultRotateConfig("app.log",
-		zlog.WithMaxSize(100),       // Increase max size to 100 MB
-		zlog.WithMaxBackups(10),     // Keep 10 backups instead of 5
-		zlog.WithMaxAge(30),         // Keep logs for 30 days instead of 10
-		zlog.WithCompress(false),    // Disable compression
-		zlog.WithLocalTime(true),    // Use local time (default is true anyway)
+		zlog.WithMaxSize(100),    // Increase max size to 100 MB
+		zlog.WithMaxBackups(10),  // Keep 10 backups instead of 5
+		zlog.WithMaxAge(30),      // Keep logs for 30 days instead of 10
+		zlog.WithCompress(false), // Disable compression
+		zlog.WithLocalTime(true), // Use local time (default is true anyway)
 	)
 
 	consoleRotatingLogger := zlog.NewRotatingLoggerWithFormat(rotateConfig, zlog.ConsoleFormat)
@@ -26,7 +26,7 @@ func main() {
 
 	// Example 2: Custom configuration with minimal changes
 	customConfig := zlog.GetDefaultRotateConfig("custom.log",
-		zlog.WithMaxSize(50),        // Only change max size
+		zlog.WithMaxSize(50), // Only change max size
 	)
 
 	jsonRotatingLogger := zlog.NewRotatingLoggerWithFormat(customConfig, zlog.JSONFormat)
@@ -46,7 +46,7 @@ func main() {
 					Int("pid", os.Getpid()).Logger()
 			},
 		),
-		zlog.WithRotation(customConfig), // Use rotation with our custom config
+		zlog.WithRotation(customConfig, nil), // Use rotation with our custom config
 	)
 
 	enrichedLogger.Info("Message with global fields and rotation")
@@ -58,8 +58,8 @@ func main() {
 		zlog.WithLevel(hertzlog.LevelDebug),
 		zlog.WithRotationAndFormat(
 			zlog.GetDefaultRotateConfig("multi-option.log",
-				zlog.WithMaxSize(25),    // 25 MB max
-				zlog.WithMaxBackups(3),  // 3 backups
+				zlog.WithMaxSize(25),   // 25 MB max
+				zlog.WithMaxBackups(3), // 3 backups
 			),
 			zlog.ConsoleFormat,
 		),

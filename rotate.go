@@ -117,10 +117,15 @@ func NewRotatingLoggerWithFormat(config *RotateConfig, format FormatType) *Rotat
 }
 
 // WithRotation is an option function that configures the logger with rotation
-func WithRotation(config *RotateConfig) Option {
+func WithRotation(config *RotateConfig, output io.Writer) Option {
 	sLumberjackLogger := newSafeLumberjackLogger(config)
-
-	return WithOutput(sLumberjackLogger)
+	if output != nil {
+		iw := io.MultiWriter(sLumberjackLogger, output)
+		return WithOutput(iw)
+	} else {
+		iw := io.MultiWriter(sLumberjackLogger, os.Stdout)
+		return WithOutput(iw)
+	}
 }
 
 // WithRotationAndFormat is an option function that configures the logger with rotation and format

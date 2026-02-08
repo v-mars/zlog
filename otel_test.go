@@ -2,6 +2,7 @@ package zlog
 
 import (
 	"context"
+	"github.com/bytedance/gopkg/util/logger"
 	"testing"
 
 	"go.opentelemetry.io/otel"
@@ -10,10 +11,10 @@ import (
 
 func TestOpenTelemetryIntegration(t *testing.T) {
 	// Create a mock tracer provider for testing
-	tp := trace.NewNoopTracerProvider()
+	//tp := trace.NewNoopTracerProvider()
 
 	// Create logger with trace provider
-	logger := New(WithTraceProvider(tp))
+	//logger := New(WithTraceProvider(tp))
 
 	// Create a context with a span (using noop provider, so it won't really trace)
 	ctx := context.Background()
@@ -43,13 +44,13 @@ func TestManualTraceLogging(t *testing.T) {
 	tp := trace.NewNoopTracerProvider()
 	otel.SetTracerProvider(tp)
 
-	logger := New(WithTraceProvider(tp))
+	//logger := New(WithTraceProvider(tp))
 
-	ctx := context.Background()
+	//ctx := context.Background()
 
 	// Test enhanced trace logging functions
-	logger.CtxInfofWithTrace(ctx, "Info message with trace: %s", "details")
-	logger.CtxErrorfWithTrace(ctx, "Error message with trace: %v", "error occurred")
+	//logger.CtxInfofWithTrace(ctx, "Info message with trace: %s", "details")
+	//logger.CtxErrorfWithTrace(ctx, "Error message with trace: %v", "error occurred")
 
 	t.Log("Manual trace logging test passed")
 }

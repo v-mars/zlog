@@ -90,8 +90,10 @@ func GetLogFormat(f string) FormatType {
 type ZLogger struct {
 	logger zerolog.Logger
 	level  hertzlog.Level
-	tp     trace.TracerProvider
 	format FormatType
+	out    io.Writer
+	//tp     trace.TracerProvider
+
 }
 
 // Ensure ZLogger implements FullLogger interface
@@ -112,15 +114,16 @@ func New(options ...Option) *ZLogger {
 	}
 
 	var zlogger zerolog.Logger
+	var zctx = zerolog.Context{}
 	switch cfg.format {
 	case JSONFormat:
 		// JSON format - default zerolog behavior with caller info
-		zlogger = zerolog.New(cfg.output).Level(toZerologLevel(cfg.level)).With().Timestamp().CallerWithSkipFrameCount(3).Logger()
+		zctx = zerolog.New(cfg.output).Level(toZerologLevel(cfg.level)).With().Timestamp()
 	case ConsoleFormat:
 		// Console format - human readable with RFC3339 time format, caller info and custom format
 		consoleWriter := &zerolog.ConsoleWriter{
 			Out:        cfg.output,
-			TimeFormat: time.RFC3339,
+			TimeFormat: time.DateTime,
 			FormatLevel: func(i interface{}) string {
 				// Ensure full level name is shown instead of 3-letter abbreviation
 				if ll, ok := i.(string); ok {
@@ -129,13 +132,12 @@ func New(options ...Option) *ZLogger {
 				return fmt.Sprintf("%-6s", strings.ToUpper(fmt.Sprintf("%s", i)))
 			},
 		}
-		zlogger = zerolog.New(consoleWriter).Level(toZerologLevel(cfg.level)).With().Timestamp().CallerWithSkipFrameCount(3).Logger()
+		zctx = zerolog.New(consoleWriter).Level(toZerologLevel(cfg.level)).With().Timestamp()
 	default:
 		// Default to console format with customization
 		consoleWriter := &zerolog.ConsoleWriter{
-			Out: cfg.output,
-			//TimeFormat: time.RFC3339,
-			TimeFormat: time.RFC3339,
+			Out:        cfg.output,
+			TimeFormat: time.DateTime,
 			FormatLevel: func(i interface{}) string {
 				// Ensure full level name is shown instead of 3-letter abbreviation
 				if ll, ok := i.(string); ok {
@@ -144,8 +146,14 @@ func New(options ...Option) *ZLogger {
 				return fmt.Sprintf("%-6s", strings.ToUpper(fmt.Sprintf("%s", i)))
 			},
 		}
-		zlogger = zerolog.New(consoleWriter).Level(toZerologLevel(cfg.level)).With().Timestamp().CallerWithSkipFrameCount(3).Logger()
+		zctx = zerolog.New(consoleWriter).Level(toZerologLevel(cfg.level)).With().Timestamp()
+
 	}
+	if cfg.skipFrameCount > 0 {
+		zctx = zctx.CallerWithSkipFrameCount(cfg.skipFrameCount)
+	}
+
+	zlogger = zctx.Logger()
 
 	// Apply any additional logger enrichments
 	for _, enricher := range cfg.loggerEnrichers {
@@ -168,7 +176,8 @@ type config struct {
 	output io.Writer
 	level  hertzlog.Level
 	//tp     trace.TracerProvider
-	format FormatType
+	format         FormatType
+	skipFrameCount int
 	// Functions to customize the base logger after initial setup
 	loggerEnrichers []func(zerolog.Logger) zerolog.Logger
 }
@@ -202,6 +211,12 @@ func WithLevel(level hertzlog.Level) Option {
 func WithFormat(format FormatType) Option {
 	return func(c *config) {
 		c.format = format
+	}
+}
+
+func CallerWithSkipFrameCount(skipFrameCount int) Option {
+	return func(c *config) {
+		c.skipFrameCount = skipFrameCount
 	}
 }
 
