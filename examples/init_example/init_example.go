@@ -30,7 +30,7 @@ func InitLog(LogFileName, logFormat string, level hlog.Level) {
 func main() {
 	InitLog(
 		"log.log",
-		"json",
+		"text",
 		hlog.LevelInfo,
 	)
 	hlog.Info("Hello, World!")

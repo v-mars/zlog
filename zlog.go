@@ -124,12 +124,13 @@ func New(options ...Option) *ZLogger {
 		consoleWriter := &zerolog.ConsoleWriter{
 			Out:        cfg.output,
 			TimeFormat: time.DateTime,
+			NoColor:    true,
 			FormatLevel: func(i interface{}) string {
 				// Ensure full level name is shown instead of 3-letter abbreviation
 				if ll, ok := i.(string); ok {
-					return fmt.Sprintf("%-6s", strings.ToUpper(ll))
+					return fmt.Sprintf("%-6s", strings.ToLower(ll))
 				}
-				return fmt.Sprintf("%-6s", strings.ToUpper(fmt.Sprintf("%s", i)))
+				return fmt.Sprintf("%-6s", strings.ToLower(fmt.Sprintf("%s", i)))
 			},
 		}
 		zctx = zerolog.New(consoleWriter).Level(toZerologLevel(cfg.level)).With().Timestamp()
@@ -137,13 +138,14 @@ func New(options ...Option) *ZLogger {
 		// Default to console format with customization
 		consoleWriter := &zerolog.ConsoleWriter{
 			Out:        cfg.output,
+			NoColor:    true,
 			TimeFormat: time.DateTime,
 			FormatLevel: func(i interface{}) string {
 				// Ensure full level name is shown instead of 3-letter abbreviation
 				if ll, ok := i.(string); ok {
-					return fmt.Sprintf("%-6s", strings.ToUpper(ll))
+					return fmt.Sprintf("%-6s", strings.ToLower(ll))
 				}
-				return fmt.Sprintf("%-6s", strings.ToUpper(fmt.Sprintf("%s", i)))
+				return fmt.Sprintf("%-6s", strings.ToLower(fmt.Sprintf("%s", i)))
 			},
 		}
 		zctx = zerolog.New(consoleWriter).Level(toZerologLevel(cfg.level)).With().Timestamp()
