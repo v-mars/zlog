@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 
 	hertzlog "github.com/cloudwego/hertz/pkg/common/hlog"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -27,75 +29,106 @@ type RotateConfig struct {
 	LocalTime  bool   // LocalTime determines if the time used for formatting the timestamps in backup files is the computer's local time
 }
 
+// EnsureDirectoryExists checks if the directory for the log file exists, and creates it if it doesn't
+func EnsureDirectoryExists(filename string) error {
+	dir := filepath.Dir(filename)
+	if dir != "." && dir != "/" {
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create directory for log file: %w", err)
+		}
+	}
+	return nil
+}
+
+// safeLumberjackLogger wraps lumberjack.Logger to ensure directory exists before writing
+type safeLumberjackLogger struct {
+	*lumberjack.Logger
+	directoryEnsured bool
+	filename         string
+}
+
+// newSafeLumberjackLogger creates a new safeLumberjackLogger that ensures directory exists
+func newSafeLumberjackLogger(config *RotateConfig) *safeLumberjackLogger {
+	// Ensure directory exists before creating the logger
+	EnsureDirectoryExists(config.Filename)
+
+	return &safeLumberjackLogger{
+		Logger: &lumberjack.Logger{
+			Filename:   config.Filename,
+			MaxSize:    config.MaxSize,
+			MaxBackups: config.MaxBackups,
+			MaxAge:     config.MaxAge,
+			Compress:   config.Compress,
+			LocalTime:  config.LocalTime,
+		},
+		filename:         config.Filename,
+		directoryEnsured: true, // Since we ensured directory exists at creation
+	}
+}
+
+// ensureDirectory ensures the directory exists before any write operation
+func (s *safeLumberjackLogger) ensureDirectory() error {
+	if !s.directoryEnsured {
+		err := EnsureDirectoryExists(s.filename)
+		if err != nil {
+			return err
+		}
+		s.directoryEnsured = true
+	}
+	return nil
+}
+
+// Write implements the io.Writer interface with directory creation
+func (s *safeLumberjackLogger) Write(p []byte) (n int, err error) {
+	err = s.ensureDirectory()
+	if err != nil {
+		return 0, err
+	}
+	return s.Logger.Write(p)
+}
+
 // NewRotatingLogger creates a new logger with rotation capabilities
 func NewRotatingLogger(config *RotateConfig) *RotatingLogger {
-	lumberjackLogger := &lumberjack.Logger{
-		Filename:   config.Filename,
-		MaxSize:    config.MaxSize,
-		MaxBackups: config.MaxBackups,
-		MaxAge:     config.MaxAge,
-		Compress:   config.Compress,
-		LocalTime:  config.LocalTime,
-	}
+	sLumberjackLogger := newSafeLumberjackLogger(config)
 
-	// Create a new ZLogger with lumberjack writer using console format by default
-	zLogger := New(WithOutput(lumberjackLogger), WithFormat(ConsoleFormat))
+	// Create a new ZLogger with safe lumberjack writer using console format by default
+	zLogger := New(WithOutput(sLumberjackLogger), WithFormat(ConsoleFormat))
 
 	return &RotatingLogger{
 		baseLogger: zLogger,
-		writer:     lumberjackLogger,
+		writer:     sLumberjackLogger,
 		config:     config,
 	}
 }
 
 // NewRotatingLoggerWithFormat creates a new logger with rotation capabilities and specified format
 func NewRotatingLoggerWithFormat(config *RotateConfig, format FormatType) *RotatingLogger {
-	lumberjackLogger := &lumberjack.Logger{
-		Filename:   config.Filename,
-		MaxSize:    config.MaxSize,
-		MaxBackups: config.MaxBackups,
-		MaxAge:     config.MaxAge,
-		Compress:   config.Compress,
-		LocalTime:  config.LocalTime,
-	}
+	safeLumberjackLogger := newSafeLumberjackLogger(config)
 
-	// Create a new ZLogger with lumberjack writer and specified format
-	zLogger := New(WithOutput(lumberjackLogger), WithFormat(format))
+	// Create a new ZLogger with safe lumberjack writer and specified format
+	zLogger := New(WithOutput(safeLumberjackLogger), WithFormat(format))
 
 	return &RotatingLogger{
 		baseLogger: zLogger,
-		writer:     lumberjackLogger,
+		writer:     safeLumberjackLogger,
 		config:     config,
 	}
 }
 
 // WithRotation is an option function that configures the logger with rotation
 func WithRotation(config *RotateConfig) Option {
-	lumberjackLogger := &lumberjack.Logger{
-		Filename:   config.Filename,
-		MaxSize:    config.MaxSize,
-		MaxBackups: config.MaxBackups,
-		MaxAge:     config.MaxAge,
-		Compress:   config.Compress,
-		LocalTime:  config.LocalTime,
-	}
+	safeLumberjackLogger := newSafeLumberjackLogger(config)
 
-	return WithOutput(lumberjackLogger)
+	return WithOutput(safeLumberjackLogger)
 }
 
 // WithRotationAndFormat is an option function that configures the logger with rotation and format
 func WithRotationAndFormat(rotationConfig *RotateConfig, format FormatType) Option {
 	return func(c *config) {
-		lumberjackLogger := &lumberjack.Logger{
-			Filename:   rotationConfig.Filename,
-			MaxSize:    rotationConfig.MaxSize,
-			MaxBackups: rotationConfig.MaxBackups,
-			MaxAge:     rotationConfig.MaxAge,
-			Compress:   rotationConfig.Compress,
-			LocalTime:  rotationConfig.LocalTime,
-		}
+		safeLumberjackLogger := newSafeLumberjackLogger(rotationConfig)
 
-		c.output = lumberjackLogger
+		c.output = safeLumberjackLogger
 		c.format = format
 	}
 }
@@ -159,14 +192,20 @@ func GetDefaultRotateConfig(filename string, opts ...RotateConfigOption) *Rotate
 
 // Rotate manually rotates the log file
 func (rl *RotatingLogger) Rotate() error {
+	if lj, ok := rl.writer.(*safeLumberjackLogger); ok {
+		return lj.Rotate()
+	}
 	if lj, ok := rl.writer.(*lumberjack.Logger); ok {
 		return lj.Rotate()
 	}
-	return fmt.Errorf("unable to rotate: writer is not a lumberjack.Logger")
+	return fmt.Errorf("unable to rotate: writer is not a safeLumberjackLogger or lumberjack.Logger")
 }
 
 // GetRotatingWriter returns the underlying lumberjack writer for direct access
 func (rl *RotatingLogger) GetRotatingWriter() *lumberjack.Logger {
+	if lj, ok := rl.writer.(*safeLumberjackLogger); ok {
+		return lj.Logger
+	}
 	if lj, ok := rl.writer.(*lumberjack.Logger); ok {
 		return lj
 	}
