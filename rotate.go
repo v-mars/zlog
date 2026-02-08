@@ -104,31 +104,31 @@ func NewRotatingLogger(config *RotateConfig) *RotatingLogger {
 
 // NewRotatingLoggerWithFormat creates a new logger with rotation capabilities and specified format
 func NewRotatingLoggerWithFormat(config *RotateConfig, format FormatType) *RotatingLogger {
-	safeLumberjackLogger := newSafeLumberjackLogger(config)
+	sLumberjackLogger := newSafeLumberjackLogger(config)
 
 	// Create a new ZLogger with safe lumberjack writer and specified format
-	zLogger := New(WithOutput(safeLumberjackLogger), WithFormat(format))
+	zLogger := New(WithOutput(sLumberjackLogger), WithFormat(format))
 
 	return &RotatingLogger{
 		baseLogger: zLogger,
-		writer:     safeLumberjackLogger,
+		writer:     sLumberjackLogger,
 		config:     config,
 	}
 }
 
 // WithRotation is an option function that configures the logger with rotation
 func WithRotation(config *RotateConfig) Option {
-	safeLumberjackLogger := newSafeLumberjackLogger(config)
+	sLumberjackLogger := newSafeLumberjackLogger(config)
 
-	return WithOutput(safeLumberjackLogger)
+	return WithOutput(sLumberjackLogger)
 }
 
 // WithRotationAndFormat is an option function that configures the logger with rotation and format
 func WithRotationAndFormat(rotationConfig *RotateConfig, format FormatType) Option {
 	return func(c *config) {
-		safeLumberjackLogger := newSafeLumberjackLogger(rotationConfig)
+		sLumberjackLogger := newSafeLumberjackLogger(rotationConfig)
 
-		c.output = safeLumberjackLogger
+		c.output = sLumberjackLogger
 		c.format = format
 	}
 }

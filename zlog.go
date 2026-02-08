@@ -79,6 +79,13 @@ const (
 	JSONFormat
 )
 
+func GetLogFormat(f string) FormatType {
+	if f == "json" {
+		return JSONFormat
+	}
+	return ConsoleFormat
+}
+
 // ZLogger implements the FullLogger interface using zerolog
 type ZLogger struct {
 	logger zerolog.Logger
@@ -95,9 +102,9 @@ func New(options ...Option) *ZLogger {
 	cfg := &config{
 		output:          os.Stdout,
 		level:           hertzlog.LevelInfo,
-		tp:              trace.NewNoopTracerProvider(),
 		format:          ConsoleFormat, // Default to console format
 		loggerEnrichers: []func(zerolog.Logger) zerolog.Logger{},
+		//tp:              trace.NewNoopTracerProvider(),
 	}
 
 	for _, opt := range options {
@@ -148,8 +155,8 @@ func New(options ...Option) *ZLogger {
 	return &ZLogger{
 		logger: zlogger,
 		level:  cfg.level,
-		tp:     cfg.tp,
 		format: cfg.format,
+		//tp:     cfg.tp,
 	}
 }
 
@@ -160,7 +167,7 @@ type Option func(*config)
 type config struct {
 	output io.Writer
 	level  hertzlog.Level
-	tp     trace.TracerProvider
+	//tp     trace.TracerProvider
 	format FormatType
 	// Functions to customize the base logger after initial setup
 	loggerEnrichers []func(zerolog.Logger) zerolog.Logger
@@ -181,15 +188,15 @@ func WithLevel(level hertzlog.Level) Option {
 }
 
 // WithTraceProvider sets the OpenTelemetry trace provider for the logger
-func WithTraceProvider(tp trace.TracerProvider) Option {
-	return func(c *config) {
-		if tp != nil {
-			c.tp = tp
-		} else {
-			c.tp = trace.NewNoopTracerProvider()
-		}
-	}
-}
+//func WithTraceProvider(tp trace.TracerProvider) Option {
+//	return func(c *config) {
+//		if tp != nil {
+//			c.tp = tp
+//		} else {
+//			c.tp = trace.NewNoopTracerProvider()
+//		}
+//	}
+//}
 
 // WithFormat sets the output format for the logger (Console or JSON)
 func WithFormat(format FormatType) Option {
